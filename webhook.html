@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradingView Webhook Handler</title>
+</head>
+<body>
+    <h1>🚀 PowerUpEA Webhook Server</h1>
+    <div id="status">대기 중...</div>
+    <div id="log"></div>
+
+    <script>
+        // TradingView 웹훅 신호를 받는 함수
+        async function handleWebhook() {
+            try {
+                // URL 파라미터에서 신호 데이터 읽기
+                const urlParams = new URLSearchParams(window.location.search);
+                const signal = urlParams.get('signal');
+                const symbol = urlParams.get('symbol');
+                const action = urlParams.get('action');
+                
+                if (signal) {
+                    const webhookData = {
+                        signal: signal,
+                        symbol: symbol || 'BTCUSDT',
+                        action: action || 'BUY',
+                        timestamp: new Date().toISOString(),
+                        source: 'TradingView'
+                    };
+                    
+                    // 로그 표시
+                    const logDiv = document.getElementById('log');
+                    const statusDiv = document.getElementById('status');
+                    
+                    statusDiv.innerHTML = '✅ 신호 수신됨!';
+                    logDiv.innerHTML += `
+                        <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                            <strong>🔵 ${webhookData.action} 신호</strong><br>
+                            심볼: ${webhookData.symbol}<br>
+                            시간: ${webhookData.timestamp}<br>
+                            원본: ${JSON.stringify(webhookData, null, 2)}
+                        </div>
+                    `;
+                    
+                    // Python 웹훅 서버로 전달
+                    await forwardToLocalServer(webhookData);
+                }
+            } catch (error) {
+                console.error('웹훅 처리 오류:', error);
+                document.getElementById('status').innerHTML = '❌ 오류 발생: ' + error.message;
+            }
+        }
+        
+        // 로컬 Python 서버로 데이터 전달
+        async function forwardToLocalServer(data) {
+            try {
+                // 여러 가능한 로컬 서버 주소 시도
+                const servers = [
+                    'http://localhost:5000/webhook',
+                    'http://127.0.0.1:5000/webhook',
+                    'http://YOUR_HOME_IP:5000/webhook'  // 실제 IP로 변경 필요
+                ];
+                
+                for (const serverUrl of servers) {
+                    try {
+                        const response = await fetch(serverUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Access-Control-Allow-Origin': '*'
+                            },
+                            body: JSON.stringify(data)
+                        });
+                        
+                        if (response.ok) {
+                            console.log('✅ 로컬 서버로 전달 성공:', serverUrl);
+                            document.getElementById('status').innerHTML += '<br>✅ 로컬 서버로 전달됨';
+                            break;
+                        }
+                    } catch (e) {
+                        console.log('서버 연결 실패:', serverUrl, e.message);
+                    }
+                }
+            } catch (error) {
+                console.error('로컬 서버 전달 실패:', error);
+                document.getElementById('log').innerHTML += `
+                    <div style="color: red;">❌ 로컬 서버 전달 실패: ${error.message}</div>
+                `;
+            }
+        }
+        
+        // 페이지 로드 시 웹훅 처리
+        window.onload = handleWebhook;
+        
+        // POST 요청 시뮬레이션 (GitHub Pages는 POST를 직접 받을 수 없음)
+        if (window.location.hash) {
+            try {
+                const hashData = decodeURIComponent(window.location.hash.substring(1));
+                const webhookData = JSON.parse(hashData);
+                document.getElementById('status').innerHTML = '✅ Hash 데이터 수신됨!';
+                document.getElementById('log').innerHTML += `
+                    <div style="margin: 10px 0; padding: 10px; background: #e8f5e8; border-radius: 5px;">
+                        <strong>📨 수신된 데이터:</strong><br>
+                        <pre>${JSON.stringify(webhookData, null, 2)}</pre>
+                    </div>
+                `;
+                forwardToLocalServer(webhookData);
+            } catch (e) {
+                console.error('Hash 데이터 파싱 오류:', e);
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        
+        #status {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+            border: 2px solid #ddd;
+        }
+        
+        #log {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 200px;
+            border: 1px solid #ddd;
+        }
+        
+        pre {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</body>
+</html>
