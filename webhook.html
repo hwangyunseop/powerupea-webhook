@@ -22,15 +22,20 @@
                 const signal = urlParams.get('signal');
                 const symbol = urlParams.get('symbol');
                 const action = urlParams.get('action');
+                const price = urlParams.get('price');
+                
+                console.log('URL 파라미터:', { signal, symbol, action, price });
                 
                 if (signal || action) {
                     const webhookData = {
                         action: action || signal || 'BUY',
                         symbol: symbol || 'BTC_USDT',
-                        price: urlParams.get('price') || '0',
+                        price: price || '0',
                         timestamp: new Date().toISOString(),
                         source: 'TradingView_Master'
                     };
+                    
+                    console.log('웹훅 데이터:', webhookData);
                     
                     // 로그 표시
                     const logDiv = document.getElementById('log');
@@ -41,6 +46,7 @@
                         <div style="margin: 10px 0; padding: 10px; border: 2px solid #4CAF50; border-radius: 5px; background: #e8f5e8;">
                             <strong>🔵 마스터 ${webhookData.action} 신호</strong><br>
                             심볼: ${webhookData.symbol}<br>
+                            가격: ${webhookData.price}<br>
                             시간: ${webhookData.timestamp}<br>
                             <small>원본: ${JSON.stringify(webhookData, null, 2)}</small>
                         </div>
@@ -48,6 +54,9 @@
                     
                     // 마스터 서버로 전달
                     await forwardToMasterServer(webhookData);
+                } else {
+                    console.log('신호 파라미터가 없습니다');
+                    document.getElementById('status').innerHTML = '❌ 신호 파라미터 없음';
                 }
             } catch (error) {
                 console.error('웹훅 처리 오류:', error);
@@ -63,8 +72,7 @@
             try {
                 console.log(`🔍 마스터 서버 연결 시도: ${MASTER_SERVER_URL}`);
                 
-                // CORS 우회를 위한 이미지 요청 방식 사용
-                const img = new Image();
+                // GET 방식으로 전달 (VPS 서버에서 GET 지원)
                 const params = new URLSearchParams({
                     action: data.action,
                     symbol: data.symbol,
@@ -73,37 +81,36 @@
                     source: data.source
                 });
                 
-                // GET 방식으로 전달 (CORS 우회)
-                img.src = `${MASTER_SERVER_URL}?${params.toString()}`;
+                const getUrl = `${MASTER_SERVER_URL}?${params.toString()}`;
+                console.log('GET 요청 URL:', getUrl);
                 
-                console.log('✅ 마스터 서버 전달 시도 완료');
-                statusDiv.innerHTML += '<br>✅ 마스터 서버 전달 시도!';
-                logDiv.innerHTML += `
-                    <div style="color: green; margin: 5px 0; padding: 10px; background: #d4edda; border-radius: 5px;">
-                        ✅ 마스터 서버 전달 시도<br>
-                        <strong>VPS 서버:</strong> 210.114.11.142:8080<br>
-                        <small>신호: ${data.action} | 심볼: ${data.symbol}</small>
-                    </div>
-                `;
-                
-                // 추가로 POST 방식도 시도
-                try {
-                    await fetch(MASTER_SERVER_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(data),
-                        mode: 'no-cors'
-                    });
-                    
+                // 이미지 요청 방식으로 GET 전달 (CORS 우회)
+                const img = new Image();
+                img.onload = function() {
+                    console.log('✅ 마스터 서버 전달 성공');
+                    statusDiv.innerHTML += '<br>✅ 마스터 서버 전달 완료!';
                     logDiv.innerHTML += `
-                        <div style="color: blue; margin: 5px 0; padding: 5px; background: #cce5ff; border-radius: 3px;">
-                            📡 POST 요청도 전송됨
+                        <div style="color: green; margin: 5px 0; padding: 10px; background: #d4edda; border-radius: 5px;">
+                            ✅ 마스터 서버 전달 성공<br>
+                            <strong>VPS 서버:</strong> 210.114.11.142:8080<br>
+                            <strong>신호:</strong> ${data.action} | <strong>심볼:</strong> ${data.symbol} | <strong>가격:</strong> ${data.price}
                         </div>
                     `;
+                };
+                img.onerror = function() {
+                    console.error('❌ 이미지 요청 실패');
+                };
+                img.src = getUrl;
+                
+                // 추가로 fetch도 시도 (no-cors 모드)
+                try {
+                    await fetch(getUrl, {
+                        method: 'GET',
+                        mode: 'no-cors'
+                    });
+                    console.log('✅ Fetch 요청도 전송됨');
                 } catch (e) {
-                    console.log('POST 요청 실패 (정상):', e.message);
+                    console.log('Fetch 요청 실패 (정상):', e.message);
                 }
                 
             } catch (e) {
@@ -125,25 +132,15 @@
         }
         
         // 페이지 로드 시 웹훅 처리
-        window.onload = handleWebhook;
+        window.onload = function() {
+            console.log('페이지 로드됨, 웹훅 처리 시작');
+            handleWebhook();
+        };
         
-        // POST 요청 시뮬레이션 (Hash 데이터)
-        if (window.location.hash) {
-            try {
-                const hashData = decodeURIComponent(window.location.hash.substring(1));
-                const webhookData = JSON.parse(hashData);
-                document.getElementById('status').innerHTML = '✅ Hash 데이터 수신됨!';
-                document.getElementById('log').innerHTML += `
-                    <div style="margin: 10px 0; padding: 10px; background: #e8f5e8; border-radius: 5px;">
-                        <strong>📨 수신된 데이터:</strong><br>
-                        <pre>${JSON.stringify(webhookData, null, 2)}</pre>
-                    </div>
-                `;
-                forwardToMasterServer(webhookData);
-            } catch (e) {
-                console.error('Hash 데이터 파싱 오류:', e);
-            }
-        }
+        // 추가 디버깅
+        console.log('현재 URL:', window.location.href);
+        console.log('URL 검색 파라미터:', window.location.search);
+        
     </script>
     
     <style>
