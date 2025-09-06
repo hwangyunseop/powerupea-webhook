@@ -11,8 +11,8 @@
     <div id="log"></div>
 
     <script>
-        // 마스터 서버 설정 (VPS IP로 수정됨)
-        const MASTER_SERVER_URL = 'http://210.114.11.142:6000/master_webhook';
+        // 마스터 서버 설정 (포트 8080으로 수정됨)
+        const MASTER_SERVER_URL = 'http://210.114.11.142:8080/master_webhook';
         
         // 웹훅 처리
         async function handleWebhook() {
@@ -81,7 +81,7 @@
                 logDiv.innerHTML += `
                     <div style="color: green; margin: 5px 0; padding: 10px; background: #d4edda; border-radius: 5px;">
                         ✅ 마스터 서버 전달 시도<br>
-                        <strong>VPS 서버:</strong> 210.114.11.142:6000<br>
+                        <strong>VPS 서버:</strong> 210.114.11.142:8080<br>
                         <small>신호: ${data.action} | 심볼: ${data.symbol}</small>
                     </div>
                 `;
@@ -116,7 +116,7 @@
                         <small>
                         확인사항:<br>
                         1. VPS 마스터 서버가 실행 중인가요?<br>
-                        2. 방화벽이 포트 6000을 차단하고 있나요?<br>
+                        2. 방화벽이 포트 8080을 차단하고 있나요?<br>
                         3. VPS IP 주소: 210.114.11.142
                         </small>
                     </div>
